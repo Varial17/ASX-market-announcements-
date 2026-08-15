@@ -1,0 +1,38 @@
+name = "asx-screener"
+main = "src/index.ts"
+compatibility_date = "2026-08-01"
+# The Anthropic SDK's credential-chain module imports node:path and node:fs.
+# We never use that path (the key is passed explicitly), but the imports are in
+# the bundle's module graph and throw at runtime without this flag.
+compatibility_flags = ["nodejs_compat"]
+
+# Workers Paid ($5/mo) is required. The free plan caps CPU at 10ms/request,
+# which is not enough to parse the feed payload and write it to D1.
+
+[[d1_databases]]
+binding = "DB"
+database_name = "asx-screener"
+database_id = "c90b65bb-903a-4725-a788-79d6ef0d7b91"
+
+[[r2_buckets]]
+binding = "PDFS"
+bucket_name = "asx-pdfs"
+
+[triggers]
+# 1 minute is the Cron Triggers platform minimum. The handler itself is a
+# no-op outside 07:00-20:00 Australia/Sydney, Mon-Fri (see src/scheduled.ts).
+# The hourly trigger runs the staleness watchdog.
+crons = ["* * * * *", "0 * * * *"]
+
+[assets]
+directory = "./public"
+
+[observability]
+enabled = true
+
+[vars]
+# Non-secret tunables. Secrets (ANTHROPIC_API_KEY, ASX_ACCESS_TOKEN,
+# ALERT_WEBHOOK_URL) are set with `wrangler secret put`.
+ANALYSIS_MODEL = "claude-sonnet-5"
+ANALYSIS_EFFORT = "medium"
+USER_AGENT = "ASX-Announcement-Screener/0.1 (private prototype; contact: danmatt429@gmail.com)"

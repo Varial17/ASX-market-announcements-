@@ -1,0 +1,26 @@
+{
+  "name": "asx-screener",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "vite build",
+    "dev": "npm run build && wrangler dev",
+    "deploy": "npm run build && wrangler deploy",
+    "typecheck": "tsc -p tsconfig.json --noEmit && tsc -p frontend/tsconfig.json --noEmit",
+    "test": "vitest run",
+    "migrate:local": "wrangler d1 migrations apply asx-screener --local",
+    "migrate:remote": "wrangler d1 migrations apply asx-screener --remote"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.117.1",
+    "zod": "^4.4.3"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "^5.20260815.1",
+    "typescript": "^5.7.3",
+    "vite": "^8.2.1",
+    "vitest": "^4.1.10",
+    "wrangler": "^4.123.0"
+  }
+}

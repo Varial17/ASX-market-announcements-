@@ -1,0 +1,53 @@
+<!doctype html>
+<html lang="en-AU">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="robots" content="noindex, nofollow" />
+    <title>ASX Announcement Screener</title>
+    <link rel="stylesheet" href="/styles.css" />
+  </head>
+  <body>
+    <header class="topbar">
+      <h1>ASX Announcement Screener</h1>
+      <div class="status" id="status" aria-live="polite"></div>
+    </header>
+
+    <div class="stale-banner" id="stale-banner" hidden role="alert"></div>
+
+    <main class="layout">
+      <section class="list-pane" aria-label="Announcements">
+        <div class="controls">
+          <input
+            type="search"
+            id="search"
+            class="search"
+            placeholder="Search code, company, headline"
+            autocomplete="off"
+            aria-label="Search announcements"
+          />
+          <div class="chips" role="group" aria-label="Filter">
+            <button class="chip is-active" data-filter="all" type="button">All</button>
+            <button class="chip" data-filter="price_sensitive" type="button">Price sensitive</button>
+            <button class="chip" data-filter="analysed" type="button">Analysed</button>
+          </div>
+        </div>
+        <ol class="rows" id="rows"></ol>
+        <div class="list-footer" id="list-footer"></div>
+      </section>
+
+      <section class="detail-pane" id="detail" aria-label="Announcement detail">
+        <div class="empty" id="detail-empty">
+          <p>Select an announcement to see its detail and source document.</p>
+        </div>
+      </section>
+    </main>
+
+    <footer class="disclaimer">
+      Information only. Not financial advice. Analysis is AI-generated and may contain errors —
+      always read the source document. Announcement data sourced from ASX.
+    </footer>
+
+    <script type="module" src="/main.ts"></script>
+  </body>
+</html>
