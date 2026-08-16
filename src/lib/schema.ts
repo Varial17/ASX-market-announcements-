@@ -14,6 +14,8 @@ export interface Env {
   ANALYSIS_MODEL: string;
   ANALYSIS_EFFORT: string;
   USER_AGENT: string;
+  /** Comma or space separated tickers requiring additional review. May be empty. */
+  WATCHLIST_TICKERS?: string;
 }
 
 /**
@@ -73,6 +75,36 @@ export const FeedResponseSchema = z.object({
 
 export type FeedItem = z.infer<typeof FeedItemSchema>;
 
+export const CheckStatusSchema = z.enum(['pass', 'query', 'fail', 'not_assessable']);
+
+export const ComplianceCheckSchema = z.object({
+  status: CheckStatusSchema,
+  note: z.string(),
+  evidence: z.string().optional(),
+});
+
+/**
+ * Every check is required. A missing key means the model skipped a box, which
+ * must fail validation rather than render as a silent gap in the checklist.
+ */
+export const ComplianceSchema = z.object({
+  overall: z.enum(['clear', 'query', 'reject']),
+  checks: z.object({
+    title: ComplianceCheckSchema,
+    entity: ComplianceCheckSchema,
+    price_sensitivity: ComplianceCheckSchema,
+    watch_list: ComplianceCheckSchema,
+    inappropriate_content: ComplianceCheckSchema,
+    format: ComplianceCheckSchema,
+    category: ComplianceCheckSchema,
+    draft_or_deformity: ComplianceCheckSchema,
+    dates_and_numbers: ComplianceCheckSchema,
+    completeness: ComplianceCheckSchema,
+  }),
+});
+
+export type Compliance = z.infer<typeof ComplianceSchema>;
+
 /** Matches the `record_analysis` tool schema in src/lib/anthropic.ts. */
 export const AnalysisSchema = z.object({
   category: z.enum([
@@ -100,6 +132,7 @@ export const AnalysisSchema = z.object({
   figures: z.array(z.object({ label: z.string(), value: z.string() })),
   flags: z.array(z.string()),
   source_quote: z.string().optional(),
+  compliance: ComplianceSchema,
 });
 
 export type Analysis = z.infer<typeof AnalysisSchema>;

@@ -35,6 +35,9 @@ export interface AnalysisRow {
   input_tokens: number | null;
   output_tokens: number | null;
   generated_at: string;
+  /** Null for rows written before migration 0002. */
+  compliance_overall: string | null;
+  compliance_json: string | null;
 }
 
 /** A feed row joined to its analysis, so the list can annotate itself. */
@@ -94,7 +97,19 @@ export function toAnalysis(row: AnalysisRow) {
     inputTokens: row.input_tokens,
     outputTokens: row.output_tokens,
     generatedAt: row.generated_at,
+    // Null for analyses generated before the checklist existed. The UI shows a
+    // "re-run to add the checklist" prompt rather than an empty one.
+    compliance: parseCompliance(row.compliance_json),
   };
+}
+
+function parseCompliance(raw: string | null): unknown | null {
+  if (!raw) return null;
+  try {
+    return JSON.parse(raw) as unknown;
+  } catch {
+    return null;
+  }
 }
 
 /**
@@ -113,8 +128,9 @@ export async function saveAnalysis(
       `INSERT OR REPLACE INTO analyses (
          document_key, category, direction, materiality, confidence, summary,
          why_it_matters, figures_json, flags_json, source_quote, model,
-         input_tokens, output_tokens, generated_at
-       ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
+         input_tokens, output_tokens, generated_at,
+         compliance_overall, compliance_json
+       ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
     )
     .bind(
       documentKey,
@@ -131,6 +147,8 @@ export async function saveAnalysis(
       meta.inputTokens,
       meta.outputTokens,
       new Date().toISOString(),
+      analysis.compliance.overall,
+      JSON.stringify(analysis.compliance),
     )
     .run();
 }

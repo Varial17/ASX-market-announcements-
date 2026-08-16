@@ -36,6 +36,40 @@ interface FeedResponse {
   serverTime: string;
 }
 
+type CheckStatus = 'pass' | 'query' | 'fail' | 'not_assessable';
+
+interface ComplianceCheck {
+  status: CheckStatus;
+  note: string;
+  evidence?: string;
+}
+
+interface Compliance {
+  overall: 'clear' | 'query' | 'reject';
+  checks: Record<string, ComplianceCheck>;
+}
+
+/** Checklist order and labels — must match src/lib/compliance.ts. */
+const CHECK_LABELS: Array<[string, string]> = [
+  ['title', 'Title'],
+  ['entity', 'Entity & authorisation'],
+  ['price_sensitivity', 'Price sensitivity'],
+  ['watch_list', 'Watch list'],
+  ['inappropriate_content', 'Inappropriate content'],
+  ['format', 'Format'],
+  ['category', 'Category'],
+  ['draft_or_deformity', 'Draft marks / deformity'],
+  ['dates_and_numbers', 'Dates & numbers'],
+  ['completeness', 'Completeness'],
+];
+
+const STATUS_LABELS: Record<CheckStatus, string> = {
+  pass: 'Pass',
+  query: 'Query',
+  fail: 'Fail',
+  not_assessable: 'Not assessable',
+};
+
 interface Analysis {
   category: string;
   direction: string;
@@ -46,6 +80,7 @@ interface Analysis {
   figures: Array<{ label: string; value: string }>;
   flags: string[];
   sourceQuote: string | null;
+  compliance?: Compliance | null;
   model?: string;
   inputTokens?: number | null;
   outputTokens?: number | null;
@@ -439,6 +474,83 @@ function renderAnalysis(slot: HTMLElement, analysis: Analysis, provenance: strin
     bits.push(`${analysis.inputTokens} in / ${analysis.outputTokens} out tokens`);
   }
   if (bits.length) slot.append(el('div', 'gen-meta', bits.join(' · ')));
+
+  renderCompliance(slot, analysis.compliance ?? null);
+}
+
+/** The ASX announcement review checklist, rendered under the investor analysis. */
+function renderCompliance(slot: HTMLElement, compliance: Compliance | null): void {
+  const wrap = el('div', 'compliance');
+
+  const head = el('div', 'analysis-head');
+  head.append(el('h3', undefined, 'Announcement review'));
+  slot.append(el('hr', 'rule'));
+
+  if (!compliance) {
+    // Generated before the checklist existed. Say so rather than showing ten
+    // blank rows, which would read as ten silent passes.
+    head.append(el('span', 'gen-meta', 'not run'));
+    wrap.append(head);
+    wrap.append(
+      el(
+        'p',
+        'muted-note',
+        'This analysis predates the review checklist. Re-generate to add it.',
+      ),
+    );
+    slot.append(wrap);
+    return;
+  }
+
+  const verdict = el('span', 'verdict', compliance.overall.toUpperCase());
+  verdict.dataset.overall = compliance.overall;
+  head.append(verdict);
+  wrap.append(head);
+
+  const counts = CHECK_LABELS.reduce<Record<string, number>>((acc, [id]) => {
+    const status = compliance.checks[id]?.status;
+    if (status) acc[status] = (acc[status] ?? 0) + 1;
+    return acc;
+  }, {});
+  wrap.append(
+    el(
+      'div',
+      'gen-meta',
+      (['pass', 'query', 'fail', 'not_assessable'] as CheckStatus[])
+        .filter((s) => counts[s])
+        .map((s) => `${counts[s]} ${STATUS_LABELS[s].toLowerCase()}`)
+        .join(' · '),
+    ),
+  );
+
+  const list = el('ol', 'checks');
+  for (const [id, label] of CHECK_LABELS) {
+    const check = compliance.checks[id];
+    const li = el('li', 'check');
+    li.dataset.status = check?.status ?? 'not_assessable';
+
+    const row = el('div', 'check-head');
+    row.append(el('span', 'check-label', label));
+    const pill = el('span', 'check-status', STATUS_LABELS[check?.status ?? 'not_assessable']);
+    pill.dataset.status = check?.status ?? 'not_assessable';
+    row.append(pill);
+    li.append(row);
+
+    li.append(el('p', 'check-note', check?.note ?? 'No result returned for this check.'));
+    if (check?.evidence) li.append(el('blockquote', 'quote', `“${check.evidence}”`));
+
+    list.append(li);
+  }
+  wrap.append(list);
+
+  wrap.append(
+    el(
+      'p',
+      'muted-note',
+      'First-pass review to assist a human reviewer. Not a determination by ASX and not a legal opinion. "Not assessable" means the check could not be made from the lodged document — it is not a pass.',
+    ),
+  );
+  slot.append(wrap);
 }
 
 // --------------------------------------------------------------- generation
@@ -521,6 +633,7 @@ async function generate(
               figures: Array<{ label: string; value: string }>;
               flags: string[];
               source_quote?: string;
+              compliance?: Compliance;
             };
             model: string;
             inputTokens: number | null;
@@ -536,6 +649,7 @@ async function generate(
             figures: data.analysis.figures,
             flags: data.analysis.flags,
             sourceQuote: data.analysis.source_quote ?? null,
+            compliance: data.analysis.compliance ?? null,
             model: data.model,
             inputTokens: data.inputTokens,
             outputTokens: data.outputTokens,

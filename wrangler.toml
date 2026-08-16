@@ -35,4 +35,8 @@ enabled = true
 # ALERT_WEBHOOK_URL) are set with `wrangler secret put`.
 ANALYSIS_MODEL = "claude-sonnet-5"
 ANALYSIS_EFFORT = "medium"
+# Tickers requiring additional compliance review, comma separated. The watch
+# list check is deterministic — computed here, never guessed by the model. An
+# empty list reports "not assessable", never a pass.
+WATCHLIST_TICKERS = ""
 USER_AGENT = "ASX-Announcement-Screener/0.1 (private prototype; contact: danmatt429@gmail.com)"

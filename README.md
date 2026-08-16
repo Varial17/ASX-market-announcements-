@@ -45,6 +45,7 @@ npx wrangler r2 bucket create asx-pdfs
 
 # 2. Schema
 npm run migrate:remote          # or `npm run migrate:local` for local dev
+                                # 0001 = core schema, 0002 = review checklist
 
 # 3. Secrets
 npx wrangler secret put ANTHROPIC_API_KEY
@@ -91,7 +92,8 @@ trigger the poller manually with
     schema.ts         zod schemas + the Env binding types
     time.ts           Australia/Sydney market-hours logic
     db.ts             row types, mappers, analysis persistence
-/migrations           0001_init.sql
+    compliance.ts     the review checklist + deterministic watch list
+/migrations           0001_init.sql, 0002_compliance.sql
 /frontend             vanilla TS + Vite → builds into /public
 ```
 
@@ -119,9 +121,40 @@ view, then cached in R2 forever and never fetched twice.
 - The response **streams**. A 27-page prospectus takes 15–25 s and the user must see text
   appearing, not a spinner. The forced tool call arrives as `input_json_delta` fragments, which
   the Worker relays as SSE and the frontend renders progressively.
-- **Thinking is disabled** and effort is `medium`, which is what keeps this at the modelled
-  ~$0.016 per typical analysis. If materiality calls look shallow on long documents, switch
-  `thinking` to `{type: 'adaptive'}` in `src/lib/anthropic.ts` and expect the cost to rise.
+- **Thinking is disabled** and effort is `medium`. If judgements look shallow on long
+  documents, switch `thinking` to `{type: 'adaptive'}` in `src/lib/anthropic.ts` and expect the
+  cost to rise.
+- `max_tokens` is 4096. The ten-check review plus the investor analysis truncated at 2048.
+
+### The announcement review checklist
+
+Every analysis also returns the ten-point ASX announcement review: title, entity and
+authorisation, price sensitivity, watch list, inappropriate content, format, category, draft
+marks and deformity, dates and numbers, completeness. One tool call covers both the investor
+analysis and the review, so the PDF is read once.
+
+Each check returns `pass`, `query`, `fail` or `not_assessable`, with a note and — where the
+verdict rests on something the document says — a verbatim quote. The overall verdict is `clear`,
+`query` or `reject`.
+
+**`not_assessable` is the point of the design.** A false pass on a compliance checklist is worse
+than no checklist: it tells a reviewer something was cleared when nobody looked. Two checks
+cannot be fully performed from a lodged PDF, and both say so rather than inventing a verdict:
+
+- **Entity/authorisation** — the model verifies the entity matches the ticker and that an
+  authorisation-for-release statement is present. It **cannot** confirm the submitter appears on
+  ASX's authorised-officer register; there is no such feed here, and the note says so every time.
+- **Watch list** — computed **server-side** from `WATCHLIST_TICKERS`, never by the model, and the
+  route overwrites whatever the model returned. An unset list reports `not_assessable`, never a
+  pass. Asking a model to guess which entities are under regulatory scrutiny would produce
+  confident fiction in the one place it does most damage.
+
+The output is a first-pass aid for a human reviewer. It is not a determination by ASX and not a
+legal opinion — the system prompt says so, and the UI repeats it under every checklist.
+
+Schema, labels and the tool definition all derive from `COMPLIANCE_CHECKS` in
+`src/lib/compliance.ts`; a test asserts they cannot drift apart, and validation rejects a
+response with any box left unticked.
 
 ### The cache is the business model
 

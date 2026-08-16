@@ -1,6 +1,7 @@
 import { getPdf } from '../lib/asx';
 import { streamAnalysis, TOOL_NAME } from '../lib/anthropic';
 import { applyBounds, type RuleVerdict } from '../lib/rules';
+import { checkWatchlist, parseWatchlist } from '../lib/compliance';
 import { json, saveAnalysis, toAnalysis, type AnalysisRow, type AnnouncementRow } from '../lib/db';
 import { AnalysisSchema, type Env } from '../lib/schema';
 
@@ -73,6 +74,10 @@ export async function handleAnalyse(
   }
 
   const verdict = verdictFor(announcement);
+  const watchlist = checkWatchlist(
+    announcement.symbol,
+    parseWatchlist(env.WATCHLIST_TICKERS),
+  );
   const encoder = new TextEncoder();
 
   // Started before the ReadableStream so an oversized PDF is a clean 413
@@ -87,6 +92,7 @@ export async function handleAnalyse(
       lodgedAt: announcement.lodged_at,
       isPriceSensitive: announcement.is_price_sensitive === 1,
       fileSizeKb: announcement.file_size_kb,
+      watchlistNote: watchlist.note,
     });
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
@@ -143,6 +149,17 @@ export async function handleAnalyse(
         const analysis = {
           ...parsed.data,
           materiality: applyBounds(parsed.data.materiality, verdict),
+          compliance: {
+            ...parsed.data.compliance,
+            checks: {
+              ...parsed.data.compliance.checks,
+              // Overwritten, not trusted. The watch list is a fact we hold and
+              // the model does not; leaving it to the model would mean a
+              // confident verdict about regulatory scrutiny with nothing
+              // behind it.
+              watch_list: watchlist,
+            },
+          },
         };
 
         const meta = {
@@ -161,6 +178,10 @@ export async function handleAnalyse(
             cacheReadInputTokens: final.usage.cache_read_input_tokens ?? 0,
             modelMateriality: parsed.data.materiality,
             storedMateriality: analysis.materiality,
+            complianceOverall: analysis.compliance.overall,
+            checksNeedingAttention: Object.entries(analysis.compliance.checks)
+              .filter(([, c]) => c.status === 'query' || c.status === 'fail')
+              .map(([id]) => id),
           }),
         );
 
