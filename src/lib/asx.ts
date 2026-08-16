@@ -67,6 +67,33 @@ export async function fetchFeed(env: Env, count = 50): Promise<FeedItem[]> {
   return parsed.data.data.items;
 }
 
+/**
+ * The feed reports size as a string with a unit — "102KB", "3169KB" — despite
+ * the field name suggesting a number. Returns whole KB, or null when the value
+ * is missing or unparseable, since a wrong size is worse than no size.
+ */
+export function parseFileSizeKb(raw: unknown): number | null {
+  if (typeof raw === 'number') return Number.isFinite(raw) ? Math.round(raw) : null;
+  if (typeof raw !== 'string') return null;
+
+  const match = /^\s*([\d,]*\.?\d+)\s*(B|KB|MB|GB)?\s*$/i.exec(raw);
+  if (!match?.[1]) return null;
+
+  const value = Number.parseFloat(match[1].replace(/,/g, ''));
+  if (!Number.isFinite(value)) return null;
+
+  switch ((match[2] ?? 'KB').toUpperCase()) {
+    case 'B':
+      return Math.round(value / 1024);
+    case 'MB':
+      return Math.round(value * 1024);
+    case 'GB':
+      return Math.round(value * 1024 * 1024);
+    default:
+      return Math.round(value);
+  }
+}
+
 export function r2KeyFor(documentKey: string): string {
   return `pdf/${documentKey}.pdf`;
 }

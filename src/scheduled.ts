@@ -1,4 +1,4 @@
-import { AsxAuthError, fetchFeed } from './lib/asx';
+import { AsxAuthError, fetchFeed, parseFileSizeKb } from './lib/asx';
 import { classify } from './lib/rules';
 import { buildHealth } from './routes/health';
 import { isMarketWindow } from './lib/time';
@@ -7,7 +7,8 @@ import type { Env, FeedItem } from './lib/schema';
 /** The cron pattern that runs the staleness watchdog; everything else polls. */
 export const WATCHDOG_CRON = '0 * * * *';
 
-interface Prepared {
+/** Exported for tests — pinned against a real feed payload. */
+export interface Prepared {
   documentKey: string;
   binds: unknown[];
 }
@@ -20,9 +21,10 @@ const INSERT_SQL = `
   ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
 `;
 
-function prepareItem(item: FeedItem, seenAt: string): Prepared | null {
+export function prepareItem(item: FeedItem, seenAt: string): Prepared | null {
   if (!item.documentKey) return null;
 
+  // May be absent entirely — "End of Day" notices carry companyInfo: [].
   const info = item.companyInfo?.[0];
   const types = item.announcementTypes?.filter((t) => typeof t === 'string' && t.length > 0) ?? [];
   const isPriceSensitive = item.isPriceSensitive === true;
@@ -48,10 +50,12 @@ function prepareItem(item: FeedItem, seenAt: string): Prepared | null {
       JSON.stringify(types),
       parsedDate.toISOString(),
       isPriceSensitive ? 1 : 0,
-      item.fileSize ?? null,
+      parseFileSizeKb(item.fileSize),
       info?.isin ?? null,
-      item.sector ?? null,
-      item.industry ?? null,
+      // Classification is nested under companyInfo, not top-level. The
+      // top-level fallback is kept in case the feed ever moves it back.
+      info?.sector ?? item.sector ?? null,
+      info?.industry ?? item.industry ?? null,
       seenAt,
       verdict.floor,
       verdict.ceiling,

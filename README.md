@@ -220,7 +220,7 @@ npm run typecheck # worker and frontend
   brief but not present in the repo, so the frontend implements the described layout — list
   left, detail right, detail stacked metadata → analysis → PDF, PDF never narrower than 600px —
   rather than lifting its markup and CSS. Drop the prototype in and it can be reconciled.
-- **The live feed could not be verified from the build environment**, whose egress policy blocks
+- **Feed shape verified against the live endpoint on 2026-08-16.** Two corrections to the brief were required: `fileSize` is a string (`"102KB"`), not a number, and `sector`/`industry` are nested inside `companyInfo[0]` rather than top-level. Both are pinned by `test/feed-shape.test.ts`.
   `asx.api.markitdigital.com`. The client is written to the shape documented in the brief and
   validates the payload with zod, failing loudly into `ingest_runs.error` if the shape has
   moved. Verify against the real endpoint on first deploy.
