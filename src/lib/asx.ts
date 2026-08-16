@@ -94,6 +94,29 @@ export function parseFileSizeKb(raw: unknown): number | null {
   }
 }
 
+const PDF_MAGIC = [0x25, 0x50, 0x44, 0x46, 0x2d]; // "%PDF-"
+
+/**
+ * The PDF header must appear within the first 1024 bytes (some files carry a
+ * short preamble), so scan rather than checking offset 0.
+ *
+ * This exists because an upstream that is having a bad day does not return an
+ * error — it returns a login page, a rate-limit notice, or a bot challenge,
+ * with HTTP 200. Storing that in R2 under an immutable cache header poisons the
+ * document permanently: every later request is a cache hit on garbage, and the
+ * PDF viewer reports only "Failed to load PDF document".
+ */
+export function looksLikePdf(buffer: ArrayBuffer): boolean {
+  const bytes = new Uint8Array(buffer.slice(0, 1024));
+  outer: for (let i = 0; i + PDF_MAGIC.length <= bytes.length; i++) {
+    for (let j = 0; j < PDF_MAGIC.length; j++) {
+      if (bytes[i + j] !== PDF_MAGIC[j]) continue outer;
+    }
+    return true;
+  }
+  return false;
+}
+
 export function r2KeyFor(documentKey: string): string {
   return `pdf/${documentKey}.pdf`;
 }
@@ -114,7 +137,17 @@ export async function getPdf(env: Env, documentKey: string): Promise<PdfResult> 
 
   const cached = await env.PDFS.get(key);
   if (cached) {
-    return { body: await cached.arrayBuffer(), fetched: false };
+    const body = await cached.arrayBuffer();
+    if (!looksLikePdf(body)) {
+      // Poisoned entry from before the write-side guard existed, or uploaded
+      // by hand. Fail loudly with the remedy rather than serving junk forever.
+      throw new AsxError(
+        200,
+        `Cached object ${key} is not a PDF (${body.byteLength} bytes). Remove it with ` +
+          `\`wrangler r2 object delete asx-pdfs/${key} --remote\` and let it re-fetch.`,
+      );
+    }
+    return { body, fetched: false };
   }
 
   const url = `${FILE_URL}/${encodeURIComponent(documentKey)}?access_token=${encodeURIComponent(
@@ -125,6 +158,18 @@ export async function getPdf(env: Env, documentKey: string): Promise<PdfResult> 
   });
 
   const body = await res.arrayBuffer();
+
+  // Never cache something that is not a PDF. A bot challenge or an error page
+  // arrives with HTTP 200 and would otherwise be stored under an immutable
+  // cache header — wrong forever, with no way to tell from the symptom.
+  if (!looksLikePdf(body)) {
+    throw new AsxError(
+      200,
+      `Origin returned ${body.byteLength} bytes that are not a PDF for ${documentKey} — ` +
+        `likely an error page or bot challenge. Not cached.`,
+    );
+  }
+
   await env.PDFS.put(key, body, {
     httpMetadata: { contentType: 'application/pdf' },
   });
