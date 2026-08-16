@@ -130,6 +130,13 @@ export const AnalysisSchema = z.object({
   summary: z.string(),
   why_it_matters: z.string(),
   figures: z.array(z.object({ label: z.string(), value: z.string() })),
+  parties: z.array(
+    z.object({
+      name: z.string(),
+      role: z.string(),
+      ticker: z.string().optional(),
+    }),
+  ),
   flags: z.array(z.string()),
   source_quote: z.string().optional(),
   compliance: ComplianceSchema,

@@ -63,6 +63,7 @@ describe('analysis validation', () => {
     summary: 'A holder crossed 5%.',
     why_it_matters: 'Substantial holder notices show who is accumulating.',
     figures: [],
+    parties: [{ name: 'Yandal Investments Pty Ltd', role: 'substantial holder' }],
     flags: [],
     compliance: {
       overall: 'query',
@@ -93,5 +94,47 @@ describe('analysis validation', () => {
       },
     };
     expect(AnalysisSchema.safeParse(bad).success).toBe(false);
+  });
+});
+
+describe('parties', () => {
+  it('is required, so a transaction announcement cannot silently omit it', () => {
+    const withoutParties = {
+      category: 'ownership',
+      direction: 'neutral',
+      materiality: 4,
+      confidence: 0.8,
+      summary: 'A holder ceased to be substantial.',
+      why_it_matters: 'Shows who is exiting.',
+      figures: [],
+      flags: [],
+      compliance: {
+        overall: 'clear',
+        checks: Object.fromEntries(
+          COMPLIANCE_CHECK_IDS.map((id) => [id, { status: 'pass', note: 'Checked.' }]),
+        ),
+      },
+    };
+    expect(AnalysisSchema.safeParse(withoutParties).success).toBe(false);
+    expect(AnalysisSchema.safeParse({ ...withoutParties, parties: [] }).success).toBe(true);
+  });
+
+  it('accepts a party with no ticker — most counterparties are unlisted', () => {
+    const parties = [
+      { name: 'Yandal Investments Pty Ltd', role: 'substantial holder' },
+      { name: 'FMR Resources Limited', role: 'issuer', ticker: 'FMR' },
+    ];
+    const parsed = AnalysisSchema.shape.parties.safeParse(parties);
+    expect(parsed.success).toBe(true);
+  });
+
+  it('tells the model never to supply a ticker from prior knowledge', () => {
+    // Whitespace-tolerant: the prompt is hard-wrapped and indented.
+    expect(SYSTEM_PROMPT).toMatch(/Never supply\s+a code from your own knowledge/);
+  });
+
+  it('bans hedged checklist notes', () => {
+    expect(SYSTEM_PROMPT).toMatch(/verdict, not a musing/);
+    expect(SYSTEM_PROMPT).toMatch(/Never write\s+"appears to"/);
   });
 });

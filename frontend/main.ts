@@ -64,11 +64,31 @@ const CHECK_LABELS: Array<[string, string]> = [
 ];
 
 const STATUS_LABELS: Record<CheckStatus, string> = {
-  pass: 'Pass',
-  query: 'Query',
-  fail: 'Fail',
-  not_assessable: 'Not assessable',
+  pass: 'PASS',
+  query: 'QUERY',
+  fail: 'FAIL',
+  not_assessable: 'NOT CHECKED',
 };
+
+/** Glyphs carry the verdict at a glance; colour alone is not enough. */
+const STATUS_GLYPHS: Record<CheckStatus, string> = {
+  pass: '✓',
+  query: '!',
+  fail: '✕',
+  not_assessable: '–',
+};
+
+const OVERALL_HEADLINES: Record<string, string> = {
+  clear: 'PASSED',
+  query: 'NEEDS REVIEW',
+  reject: 'FAILED',
+};
+
+interface Party {
+  name: string;
+  role: string;
+  ticker?: string;
+}
 
 interface Analysis {
   category: string;
@@ -80,6 +100,7 @@ interface Analysis {
   figures: Array<{ label: string; value: string }>;
   flags: string[];
   sourceQuote: string | null;
+  parties?: Party[];
   compliance?: Compliance | null;
   model?: string;
   inputTokens?: number | null;
@@ -464,6 +485,23 @@ function renderAnalysis(slot: HTMLElement, analysis: Analysis, provenance: strin
     slot.append(dl);
   }
 
+  if (analysis.parties?.length) {
+    slot.append(el('h4', 'sub-head', 'Parties'));
+    const table = el('table', 'parties');
+    for (const party of analysis.parties) {
+      const tr = el('tr');
+      const nameCell = el('td', 'party-name');
+      nameCell.append(el('span', undefined, party.name));
+      // Only rendered when the document actually stated a code — the prompt
+      // forbids supplying one from the model's own knowledge.
+      if (party.ticker) nameCell.append(el('span', 'party-ticker', party.ticker));
+      tr.append(nameCell);
+      tr.append(el('td', 'party-role', party.role));
+      table.append(tr);
+    }
+    slot.append(table);
+  }
+
   if (analysis.sourceQuote) {
     slot.append(el('blockquote', 'quote', `“${analysis.sourceQuote}”`));
   }
@@ -502,9 +540,6 @@ function renderCompliance(slot: HTMLElement, compliance: Compliance | null): voi
     return;
   }
 
-  const verdict = el('span', 'verdict', compliance.overall.toUpperCase());
-  verdict.dataset.overall = compliance.overall;
-  head.append(verdict);
   wrap.append(head);
 
   const counts = CHECK_LABELS.reduce<Record<string, number>>((acc, [id]) => {
@@ -512,27 +547,54 @@ function renderCompliance(slot: HTMLElement, compliance: Compliance | null): voi
     if (status) acc[status] = (acc[status] ?? 0) + 1;
     return acc;
   }, {});
-  wrap.append(
+  const passed = counts['pass'] ?? 0;
+  const attention = CHECK_LABELS.filter(([id]) => {
+    const s = compliance.checks[id]?.status;
+    return s === 'query' || s === 'fail';
+  });
+
+  // One unmissable line: did it pass, and if not, exactly which checks didn't.
+  const banner = el('div', 'verdict-banner');
+  banner.dataset.overall = compliance.overall;
+  banner.append(
+    el('span', 'verdict-glyph', compliance.overall === 'clear' ? '✓' : compliance.overall === 'reject' ? '✕' : '!'),
+  );
+  const text = el('div', 'verdict-text');
+  text.append(
+    el('div', 'verdict-headline', OVERALL_HEADLINES[compliance.overall] ?? compliance.overall),
+  );
+  text.append(
     el(
       'div',
-      'gen-meta',
-      (['pass', 'query', 'fail', 'not_assessable'] as CheckStatus[])
-        .filter((s) => counts[s])
-        .map((s) => `${counts[s]} ${STATUS_LABELS[s].toLowerCase()}`)
-        .join(' · '),
+      'verdict-sub',
+      attention.length
+        ? `${passed}/${CHECK_LABELS.length} passed · needs attention: ${attention
+            .map(([, label]) => label)
+            .join(', ')}`
+        : `${passed}/${CHECK_LABELS.length} checks passed${
+            counts['not_assessable'] ? ` · ${counts['not_assessable']} not checked` : ''
+          }`,
     ),
   );
+  banner.append(text);
+  wrap.append(banner);
 
   const list = el('ol', 'checks');
   for (const [id, label] of CHECK_LABELS) {
     const check = compliance.checks[id];
+    const status: CheckStatus = check?.status ?? 'not_assessable';
     const li = el('li', 'check');
-    li.dataset.status = check?.status ?? 'not_assessable';
+    li.dataset.status = status;
 
     const row = el('div', 'check-head');
+    const glyph = el('span', 'check-glyph', STATUS_GLYPHS[status]);
+    glyph.dataset.status = status;
+    // Screen readers get the word, not the symbol.
+    glyph.setAttribute('aria-label', STATUS_LABELS[status]);
+    row.append(glyph);
     row.append(el('span', 'check-label', label));
-    const pill = el('span', 'check-status', STATUS_LABELS[check?.status ?? 'not_assessable']);
-    pill.dataset.status = check?.status ?? 'not_assessable';
+    const pill = el('span', 'check-status', STATUS_LABELS[status]);
+    pill.dataset.status = status;
     row.append(pill);
     li.append(row);
 
@@ -633,6 +695,7 @@ async function generate(
               figures: Array<{ label: string; value: string }>;
               flags: string[];
               source_quote?: string;
+              parties?: Party[];
               compliance?: Compliance;
             };
             model: string;
@@ -649,6 +712,7 @@ async function generate(
             figures: data.analysis.figures,
             flags: data.analysis.flags,
             sourceQuote: data.analysis.source_quote ?? null,
+            parties: data.analysis.parties ?? [],
             compliance: data.analysis.compliance ?? null,
             model: data.model,
             inputTokens: data.inputTokens,

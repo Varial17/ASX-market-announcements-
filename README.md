@@ -45,7 +45,7 @@ npx wrangler r2 bucket create asx-pdfs
 
 # 2. Schema
 npm run migrate:remote          # or `npm run migrate:local` for local dev
-                                # 0001 = core schema, 0002 = review checklist
+                                # 0001 core, 0002 checklist, 0003 parties
 
 # 3. Secrets
 npx wrangler secret put ANTHROPIC_API_KEY
@@ -93,7 +93,7 @@ trigger the poller manually with
     time.ts           Australia/Sydney market-hours logic
     db.ts             row types, mappers, analysis persistence
     compliance.ts     the review checklist + deterministic watch list
-/migrations           0001_init.sql, 0002_compliance.sql
+/migrations           0001_init.sql, 0002_compliance.sql, 0003_parties.sql
 /frontend             vanilla TS + Vite → builds into /public
 ```
 
@@ -135,7 +135,15 @@ analysis and the review, so the PDF is read once.
 
 Each check returns `pass`, `query`, `fail` or `not_assessable`, with a note and — where the
 verdict rests on something the document says — a verbatim quote. The overall verdict is `clear`,
-`query` or `reject`.
+`query` or `reject`, rendered as a PASSED / NEEDS REVIEW / FAILED banner that names the checks
+needing attention, with a pass/fail glyph on every row. Notes are required to be verdicts rather
+than hedges: the prompt bans "appears to" and "seems to" outright, because a checklist full of
+hedging is why people stop reading checklists.
+
+Every analysis also lists the **parties** to the transaction — full legal entity names as the
+document writes them, each with its role, and a ticker only where the document states one or the
+entity is the lodging company. The model is explicitly forbidden from supplying a code from its
+own knowledge: recognising a name is not the same as the document stating its code.
 
 **`not_assessable` is the point of the design.** A false pass on a compliance checklist is worse
 than no checklist: it tells a reviewer something was cleared when nobody looked. Two checks

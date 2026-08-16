@@ -61,6 +61,7 @@ export const RECORD_ANALYSIS_TOOL = {
       'summary',
       'why_it_matters',
       'figures',
+      'parties',
       'flags',
       'compliance',
     ],
@@ -105,6 +106,32 @@ export const RECORD_ANALYSIS_TOOL = {
           type: 'object',
           required: ['label', 'value'],
           properties: { label: { type: 'string' }, value: { type: 'string' } },
+        },
+      },
+      parties: {
+        type: 'array',
+        description:
+          'Every legal entity that is a party to the transaction or event described, with its role. Empty array when there is no transaction — a routine NTA update has no parties.',
+        items: {
+          type: 'object',
+          required: ['name', 'role'],
+          properties: {
+            name: {
+              type: 'string',
+              description:
+                'Full legal entity name exactly as the document writes it, including the suffix — "Yandal Investments Pty Ltd", not "Yandal".',
+            },
+            role: {
+              type: 'string',
+              description:
+                'Role in this transaction or event, in plain words: substantial holder, issuer, acquirer, target, bidder, vendor, lead manager, administrator, counterparty.',
+            },
+            ticker: {
+              type: 'string',
+              description:
+                'ASX code. Include ONLY if the document states it, or if this is the lodging entity. Never supply a code from prior knowledge about the company.',
+            },
+          },
         },
       },
       flags: { type: 'array', items: { type: 'string' } },
@@ -165,6 +192,19 @@ advice.
 6. The issuer's own price-sensitive flag is a strong signal. If it is flagged
    sensitive, materiality should rarely be below 3. If it is not flagged and the
    type is routine, materiality should rarely be above 2.
+7. \`parties\` lists every legal entity that is a party to the transaction or
+   event, with its role. Use the full legal name exactly as the document writes
+   it — "Yandal Investments Pty Ltd", not "Yandal". A substantial holder notice
+   has at least two parties: the holder and the issuer whose shares are held.
+   An acquisition has the acquirer and the target; a takeover has the bidder and
+   the target.
+   Include a \`ticker\` ONLY when the document states it, or when the entity is
+   the lodging entity itself (its code is in the metadata below). **Never supply
+   a code from your own knowledge of a company.** Recognising a name is not the
+   same as the document stating its code — an entity whose code is not written
+   down gets no ticker.
+   If nothing is being transacted — a daily NTA update, a change of registry
+   address — return an empty array rather than padding it with the issuer.
 
 === PART B: COMPLIANCE REVIEW ===
 
@@ -184,6 +224,20 @@ The single most important rule in Part B: **a check you cannot perform is
 worse than an honest "I could not check this" — it tells a reviewer something
 has been cleared when nobody looked. Do not reason from the absence of a problem
 to a pass; a pass means you saw the thing and it was correct.
+
+Write every note as a **verdict, not a musing**. Name the specific thing you
+checked and what you found. A reviewer reads ten of these in a row and needs
+each one to settle a question.
+
+  Good: "Headline 'Ceasing to be a substantial holder' matches the Form 605
+         content; the form records the holder falling from 5.4% to 4.1%."
+  Bad:  "The title appears to be broadly appropriate for the content."
+
+The bad one is worthless — it tells the reviewer nothing they can act on, and a
+checklist full of hedging is why people stop reading checklists. Never write
+"appears to", "seems to", or "generally" when you have the document in front of
+you. If you genuinely cannot tell, that is \`not_assessable\` with a reason, not a
+hedged pass.
 
 Notes on individual checks:
 

@@ -38,6 +38,8 @@ export interface AnalysisRow {
   /** Null for rows written before migration 0002. */
   compliance_overall: string | null;
   compliance_json: string | null;
+  /** Null for rows written before migration 0003. */
+  parties_json: string | null;
 }
 
 /** A feed row joined to its analysis, so the list can annotate itself. */
@@ -100,7 +102,18 @@ export function toAnalysis(row: AnalysisRow) {
     // Null for analyses generated before the checklist existed. The UI shows a
     // "re-run to add the checklist" prompt rather than an empty one.
     compliance: parseCompliance(row.compliance_json),
+    parties: parseParties(row.parties_json),
   };
+}
+
+function parseParties(raw: string | null): Array<{ name: string; role: string; ticker?: string }> {
+  if (!raw) return [];
+  try {
+    const parsed: unknown = JSON.parse(raw);
+    return Array.isArray(parsed) ? (parsed as Array<{ name: string; role: string }>) : [];
+  } catch {
+    return [];
+  }
 }
 
 function parseCompliance(raw: string | null): unknown | null {
@@ -129,8 +142,8 @@ export async function saveAnalysis(
          document_key, category, direction, materiality, confidence, summary,
          why_it_matters, figures_json, flags_json, source_quote, model,
          input_tokens, output_tokens, generated_at,
-         compliance_overall, compliance_json
-       ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
+         compliance_overall, compliance_json, parties_json
+       ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
     )
     .bind(
       documentKey,
@@ -149,6 +162,7 @@ export async function saveAnalysis(
       new Date().toISOString(),
       analysis.compliance.overall,
       JSON.stringify(analysis.compliance),
+      JSON.stringify(analysis.parties),
     )
     .run();
 }
