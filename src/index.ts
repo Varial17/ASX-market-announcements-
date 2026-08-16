@@ -3,6 +3,7 @@ import { handleDetail } from './routes/detail';
 import { handleFeed } from './routes/feed';
 import { handleHealth } from './routes/health';
 import { handlePdf } from './routes/pdf';
+import { handleUpload } from './routes/upload';
 import { handleScheduled } from './scheduled';
 import { json } from './lib/db';
 import type { Env } from './lib/schema';
@@ -38,7 +39,9 @@ async function route(request: Request, env: Env, ctx: ExecutionContext): Promise
 
   const pdf = /^\/api\/pdf\/([^/]+)$/.exec(path);
   if (pdf?.[1]) {
-    return handlePdf(request, env, decodeURIComponent(pdf[1]));
+    const documentKey = decodeURIComponent(pdf[1]);
+    if (request.method === 'PUT') return handleUpload(request, env, documentKey);
+    return handlePdf(request, env, documentKey);
   }
 
   return json({ error: 'not_found', path }, { status: 404 });

@@ -20,8 +20,11 @@ export async function handlePdf(
       headers: {
         'Content-Type': 'application/pdf',
         'Content-Length': String(body.byteLength),
-        // A lodged announcement never changes.
-        'Cache-Control': 'public, max-age=31536000, immutable',
+        // The document never changes, but our ability to serve it has proven
+        // fallible — a year of `immutable` meant one bad response was pinned in
+        // the browser with no way to clear it. An hour keeps it cheap and lets
+        // a fixed document heal itself.
+        'Cache-Control': 'public, max-age=3600',
         'Content-Disposition': `inline; filename="${documentKey}.pdf"`,
         'X-Pdf-Source': fetched ? 'origin' : 'r2',
       },

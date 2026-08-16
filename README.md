@@ -51,6 +51,7 @@ npm run migrate:remote          # or `npm run migrate:local` for local dev
 npx wrangler secret put ANTHROPIC_API_KEY
 npx wrangler secret put ASX_ACCESS_TOKEN     # 83ff96335c2d45a094df02a206a39ff4
 npx wrangler secret put ALERT_WEBHOOK_URL    # optional; Slack/Discord incoming webhook
+npx wrangler secret put UPLOAD_TOKEN         # optional; enables PUT /api/pdf/:key
 
 # 4. Deploy (builds the frontend into ./public first)
 npm run deploy
@@ -240,6 +241,7 @@ costs nothing, it just saves nothing.
 | `GET /api/announcements` | `?limit=` (≤200) `&filter=all\|price_sensitive\|analysed` `&q=` `&before=` (keyset cursor). Returns `lastIngestAt` for the staleness banner. |
 | `GET /api/announcements/:key` | Announcement + analysis (or `null`) + `pdfUrl`. |
 | `POST /api/announcements/:key/analyse` | JSON on cache hit, SSE (`meta`/`delta`/`result`/`error`) on miss. |
+| `PUT /api/pdf/:key` | Upload a PDF straight into R2 for a document the poller cannot reach. **Disabled unless the `UPLOAD_TOKEN` secret is set** — off by default, since this is a write endpoint on a public URL. Requires `X-Upload-Token`. Rejects anything without a `%PDF-` header. Pass `?symbol=&headline=` to create the feed row in the same call. |
 | `GET /api/pdf/:key` | Same-origin PDF proxy. This route exists so the document frames inline — a cross-origin PDF will not. Immutable cache headers. |
 | `GET /api/health` | 200 when healthy, 503 when stale. |
 

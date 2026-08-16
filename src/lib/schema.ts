@@ -9,6 +9,8 @@ export interface Env {
   ASX_ACCESS_TOKEN: string;
   /** Optional. If unset, the staleness watchdog logs instead of alerting. */
   ALERT_WEBHOOK_URL?: string;
+  /** Optional. If unset, PUT /api/pdf/:key is disabled — off by default. */
+  UPLOAD_TOKEN?: string;
 
   // Vars — wrangler.toml
   ANALYSIS_MODEL: string;

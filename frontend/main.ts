@@ -430,7 +430,66 @@ function renderDetail(detail: DetailResponse, provisional: boolean): void {
   frame.className = 'pdf-frame';
   frame.src = pdfUrl;
   frame.title = `Source document: ${announcement.headline}`;
+
+  const bar = el('div', 'pdf-bar');
+  const status = el('span', 'gen-meta');
+  const upload = el('button', 'btn-ghost', 'Replace PDF…');
+  upload.type = 'button';
+  upload.addEventListener('click', () => {
+    pickAndUpload(announcement.documentKey, frame, status);
+  });
+  bar.append(upload, status);
+
+  detailEl.append(bar);
   detailEl.append(frame);
+}
+
+const TOKEN_KEY = 'asx.uploadToken';
+
+/**
+ * Upload a PDF for documents the poller cannot reach — test fixtures, or
+ * sources behind bot protection that return a challenge page to a plain fetch.
+ */
+function pickAndUpload(documentKey: string, frame: HTMLIFrameElement, status: HTMLElement): void {
+  let token = window.localStorage.getItem(TOKEN_KEY);
+  if (!token) {
+    token = window.prompt('Upload token (the UPLOAD_TOKEN secret):');
+    if (!token) return;
+    window.localStorage.setItem(TOKEN_KEY, token);
+  }
+
+  const input = document.createElement('input');
+  input.type = 'file';
+  input.accept = 'application/pdf,.pdf';
+  input.addEventListener('change', () => {
+    const file = input.files?.[0];
+    if (!file) return;
+    void send(file);
+  });
+  input.click();
+
+  async function send(file: File): Promise<void> {
+    status.textContent = `Uploading ${(file.size / 1024 / 1024).toFixed(1)}MB…`;
+    try {
+      const res = await fetch(`/api/pdf/${encodeURIComponent(documentKey)}`, {
+        method: 'PUT',
+        headers: { 'X-Upload-Token': token ?? '', 'Content-Type': 'application/pdf' },
+        body: file,
+      });
+      const body = (await res.json()) as { message?: string; error?: string; bytes?: number };
+      if (!res.ok) {
+        // A stale token is the likeliest failure; drop it so the next attempt re-prompts.
+        if (res.status === 401) window.localStorage.removeItem(TOKEN_KEY);
+        throw new Error(body.message ?? body.error ?? `HTTP ${res.status}`);
+      }
+      status.textContent = `Uploaded ${((body.bytes ?? 0) / 1024 / 1024).toFixed(1)}MB`;
+      // Cache-bust the frame: the browser caches /api/pdf/:key, so without a
+      // changing query string it would keep showing the previous document.
+      frame.src = `/api/pdf/${encodeURIComponent(documentKey)}?t=${Date.now()}`;
+    } catch (err) {
+      status.textContent = `Upload failed: ${err instanceof Error ? err.message : 'error'}`;
+    }
+  }
 }
 
 function renderGenerate(slot: HTMLElement, documentKey: string): void {
