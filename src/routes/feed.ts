@@ -7,7 +7,7 @@ const MAX_LIMIT = 200;
 /**
  * GET /api/announcements
  *   ?limit=   1..200, default 100
- *   ?filter=  all | price_sensitive | analysed
+ *   ?filter=  all | price_sensitive | analysed | test
  *   ?q=       substring over code, company, headline
  *   ?before=  ISO timestamp cursor, exclusive (keyset pagination)
  */
@@ -27,6 +27,9 @@ export async function handleFeed(request: Request, env: Env): Promise<Response> 
 
   if (filter === 'price_sensitive') where.push('a.is_price_sensitive = 1');
   if (filter === 'analysed') where.push('an.document_key IS NOT NULL');
+  // Manually uploaded documents — test fixtures, and sources the poller cannot
+  // reach. Kept in the default view too; this tab just makes them findable.
+  if (filter === 'test') where.push("a.source = 'upload'");
 
   if (q) {
     // Bound three times rather than once as ?1: all-positional placeholders

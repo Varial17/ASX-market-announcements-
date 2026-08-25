@@ -714,3 +714,14 @@ body {
   outline: 2px solid var(--accent);
   outline-offset: 1px;
 }
+
+.test-tag {
+  padding: 0 5px;
+  border-radius: 4px;
+  font-family: var(--mono);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  color: var(--accent);
+  border: 1px solid currentColor;
+}

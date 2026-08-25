@@ -117,8 +117,8 @@ export async function handleUpload(
       `INSERT INTO announcements (
          document_key, symbol, company_name, headline, announcement_type, types_json,
          lodged_at, is_price_sensitive, file_size_kb, pdf_r2_key, first_seen_at,
-         rule_floor, rule_ceiling, rule_flags_json
-       ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
+         rule_floor, rule_ceiling, rule_flags_json, source
+       ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,'upload')`,
     )
       .bind(
         documentKey,

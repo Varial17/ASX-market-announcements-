@@ -23,6 +23,8 @@ interface FeedItem {
   sector: string | null;
   industry: string | null;
   ruleFlags: string[];
+  source: string;
+  isTest: boolean;
   analysed: boolean;
   materiality: number | null;
   direction: string | null;
@@ -310,7 +312,10 @@ function renderRows(): void {
   rowsEl.replaceChildren();
 
   if (state.items.length === 0) {
-    listFooterEl.textContent = 'No announcements match.';
+    listFooterEl.textContent =
+      state.filter === 'test'
+        ? 'No test cases yet. Upload a PDF from any announcement to add one.'
+        : 'No announcements match.';
     return;
   }
 
@@ -328,6 +333,11 @@ function renderRows(): void {
       const marker = el('span', 'sensitive', '$');
       marker.title = 'Issuer-flagged price sensitive';
       top.append(marker);
+    }
+    if (item.isTest) {
+      const tag = el('span', 'test-tag', 'TEST');
+      tag.title = 'Uploaded manually — not from the ASX feed';
+      top.append(tag);
     }
     const mat = materialityOf(item);
     if (mat != null) {

@@ -18,6 +18,8 @@ export interface AnnouncementRow {
   rule_floor: number | null;
   rule_ceiling: number | null;
   rule_flags_json: string | null;
+  /** 'asx' from the poller, 'upload' from PUT /api/pdf/:key. */
+  source: string | null;
 }
 
 export interface AnalysisRow {
@@ -70,6 +72,8 @@ export function toFeedItem(row: FeedRow) {
     sector: row.sector,
     industry: row.industry,
     ruleFlags: parseJsonArray(row.rule_flags_json),
+    source: row.source ?? 'asx',
+    isTest: row.source === 'upload',
     analysed: row.materiality != null,
     materiality: row.materiality ?? null,
     direction: row.direction ?? null,
