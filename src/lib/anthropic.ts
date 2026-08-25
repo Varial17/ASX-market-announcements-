@@ -129,7 +129,7 @@ export const RECORD_ANALYSIS_TOOL = {
             ticker: {
               type: 'string',
               description:
-                'ASX code. Include ONLY if the document states it, or if this is the lodging entity. Never supply a code from prior knowledge about the company.',
+                'Exchange-qualified ticker in EXCHANGE:CODE form — ASX:IFM, NASDAQ:TPG, NYSE:BRK.A, LSE:RIO. Include ONLY if the document states the code, or if this is the lodging entity (which is always ASX). Never supply a code or an exchange from prior knowledge about the company. Omit entirely if the document does not state one.',
             },
           },
         },
@@ -198,11 +198,18 @@ advice.
    has at least two parties: the holder and the issuer whose shares are held.
    An acquisition has the acquirer and the target; a takeover has the bidder and
    the target.
-   Include a \`ticker\` ONLY when the document states it, or when the entity is
-   the lodging entity itself (its code is in the metadata below). **Never supply
-   a code from your own knowledge of a company.** Recognising a name is not the
-   same as the document stating its code — an entity whose code is not written
-   down gets no ticker.
+   Tickers must be **exchange-qualified**: \`ASX:IFM\`, \`NASDAQ:TPG\`,
+   \`NYSE:BRK.A\`, \`LSE:RIO\`. A bare code is ambiguous and on a compliance
+   record that ambiguity is dangerous — "TPG" is TPG Telecom on the ASX and an
+   unrelated US private equity firm on NASDAQ, so a bare "TPG" against an
+   Australian scheme points a reader at the wrong company entirely.
+   Include a \`ticker\` ONLY when the document states the code, or when the
+   entity is the lodging entity itself (always ASX; its code is in the metadata
+   below). **Never supply a code, or an exchange, from your own knowledge of a
+   company.** Recognising a name is not the same as the document stating its
+   code. If the document names a company but gives no code, or gives a code
+   with no exchange, omit the ticker rather than guessing which exchange it
+   trades on.
    If nothing is being transacted — a daily NTA update, a change of registry
    address — return an empty array rather than padding it with the issuer.
 

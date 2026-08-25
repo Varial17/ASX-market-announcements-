@@ -142,9 +142,16 @@ than hedges: the prompt bans "appears to" and "seems to" outright, because a che
 hedging is why people stop reading checklists.
 
 Every analysis also lists the **parties** to the transaction — full legal entity names as the
-document writes them, each with its role, and a ticker only where the document states one or the
-entity is the lodging company. The model is explicitly forbidden from supplying a code from its
-own knowledge: recognising a name is not the same as the document stating its code.
+document writes them, each with its role, and an **exchange-qualified** ticker (`ASX:IFM`,
+`NASDAQ:TPG`, `NYSE:BRK.A`).
+
+A bare code is ambiguous, and on a compliance record that ambiguity is dangerous: `ASX:TPG` is
+TPG Telecom, while the US private equity firm is `NASDAQ:TPG`. A bare "TPG" against an Australian
+scheme points the reader at entirely the wrong company. So `src/lib/parties.ts` normalises what
+comes back and **drops any code it cannot qualify honestly** — a bare code is only promoted to
+`ASX:` when it is the lodging entity's own, which we know from the announcement metadata rather
+than by inference. The model is separately forbidden from supplying a code *or an exchange* from
+its own knowledge: recognising a name is not the same as the document stating its code.
 
 **`not_assessable` is the point of the design.** A false pass on a compliance checklist is worse
 than no checklist: it tells a reviewer something was cleared when nobody looked. Two checks

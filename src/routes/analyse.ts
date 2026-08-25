@@ -2,6 +2,7 @@ import { getPdf } from '../lib/asx';
 import { streamAnalysis, TOOL_NAME } from '../lib/anthropic';
 import { applyBounds, type RuleVerdict } from '../lib/rules';
 import { checkWatchlist, parseWatchlist } from '../lib/compliance';
+import { normaliseParties } from '../lib/parties';
 import { json, saveAnalysis, toAnalysis, type AnalysisRow, type AnnouncementRow } from '../lib/db';
 import { AnalysisSchema, type Env } from '../lib/schema';
 
@@ -149,6 +150,9 @@ export async function handleAnalyse(
         const analysis = {
           ...parsed.data,
           materiality: applyBounds(parsed.data.materiality, verdict),
+          // Drop any ticker that is not exchange-qualified rather than render
+          // a bare code the reader could attribute to the wrong exchange.
+          parties: normaliseParties(parsed.data.parties, announcement.symbol),
           compliance: {
             ...parsed.data.compliance,
             checks: {

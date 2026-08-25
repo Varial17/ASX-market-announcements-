@@ -130,7 +130,7 @@ describe('parties', () => {
 
   it('tells the model never to supply a ticker from prior knowledge', () => {
     // Whitespace-tolerant: the prompt is hard-wrapped and indented.
-    expect(SYSTEM_PROMPT).toMatch(/Never supply\s+a code from your own knowledge/);
+    expect(SYSTEM_PROMPT).toMatch(/Never supply\s+a code, or an exchange, from your own knowledge/);
   });
 
   it('bans hedged checklist notes', () => {
